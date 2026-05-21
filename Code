@@ -1,3 +1,4 @@
 node --version
 npm --version
 gh auth status
+npx create-expo-app gartenguide --template tabs

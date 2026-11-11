@@ -1063,10 +1063,10 @@
     // zoom out after the last station back into the wide shot (loop seam).
     const time = t * LOOP;
     const step = TAU / N_ST;
-    let c, zoom = 1, dolly = 0;
+    let c, zoom = 1;
     if (time >= T_ST0 && time < T_LAST) {
       const s = time - T_ST0, k = Math.floor(s / SEG), r = s - k * SEG;
-      if (r < REST) { c = step * k; dolly = Math.sin(Math.PI * r / REST); }
+      if (r < REST) c = step * k;   // rest: camera holds still, no push-in
       else c = step * (k + smooth(0, 1, (r - REST) / MOVE));
     } else {
       // wide segment spans the loop seam: zoom out, hold, zoom in (5 s)
@@ -1076,8 +1076,8 @@
     }
     const portrait = camera.aspect < 0.8;
     const lerp = (a, b) => a + (b - a) * zoom;
-    const dist = lerp(portrait ? 40 : 26.5, (portrait ? 23 : 18.8) - 1.2 * dolly);
-    camera.position.set(Math.sin(c) * dist, lerp(portrait ? 10 : 8.6, (portrait ? 7.5 : 6.4) + 0.25 * wave(t, N_ST * 2, 0.25)), Math.cos(c) * dist);
+    const dist = lerp(portrait ? 40 : 26.5, (portrait ? 23 : 18.8));
+    camera.position.set(Math.sin(c) * dist, lerp(portrait ? 10 : 8.6, (portrait ? 7.5 : 6.4)), Math.cos(c) * dist);
     const tr = lerp(0, 7.2);
     camTarget.set(Math.sin(c) * tr, lerp(6.3, 2.0), Math.cos(c) * tr);
     camera.lookAt(camTarget);

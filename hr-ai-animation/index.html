@@ -57,7 +57,7 @@
 <div class="hud">
   <div class="card">
     <h1>HR Data &amp; Tools × People &amp; Culture</h1>
-    <p class="sub">Eight ways the HR Data &amp; Tools team supports People &amp; Culture</p>
+    <p class="sub">Nine ways the HR Data &amp; Tools team supports People &amp; Culture</p>
   </div>
   <div class="card legend">
     <span><i class="dot" style="background:var(--teal)"></i>HR Data &amp; Tools team</span>
@@ -70,14 +70,16 @@
 <div class="bottom">
   <button id="toggle" type="button">Pause</button>
   <div class="bar"><i id="progress"></i></div>
-  <div class="time" id="time">0.0 / 24s</div>
+  <div class="time" id="time">0.0 / 36s</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (() => {
-  const LOOP = 24;             // seconds for one full camera tour (8 stations × 3 s)
-  const DWELL = 0.72;          // share of each 3 s segment the camera rests on a station
+  const N_ST = 9;              // number of stations on the ring
+  const SEG = 4;               // seconds per station
+  const LOOP = N_ST * SEG;     // seconds for one full camera tour (36 s)
+  const DWELL = 0.75;          // share of each segment the camera rests on a station
   const TAU = Math.PI * 2;
   const COLORS = {
     teal: 0x19b3a6, coral: 0xff7a59, navy: 0x1d3557, gold: 0xf4c430, blue: 0x6c8cff, green: 0x2ecc71,
@@ -168,8 +170,8 @@
     const f = smooth(0.94, 1.0, lt) + (1 - smooth(0.0, 0.04, lt));
     if (f > 0) { ctx.fillStyle = `rgba(14,27,44,${clamp(f)})`; ctx.fillRect(0, 0, w, h); }
   }
-  function header(ctx, w, title, tag) {
-    ctx.fillStyle = "#1d3557"; ctx.fillRect(0, 0, w, 44);
+  function header(ctx, w, title, tag, bg = "#1d3557") {
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, 44);
     ctx.fillStyle = "#ffffff"; ctx.font = `700 22px ${FONT}`; ctx.textBaseline = "middle"; ctx.textAlign = "left";
     ctx.fillText(title, 16, 23);
     if (tag) {
@@ -210,9 +212,9 @@
   scene.add(sun);
 
   // floor
-  const floor = new THREE.Mesh(new THREE.CylinderGeometry(14, 14.4, 0.5, 96), mat(COLORS.floor));
+  const floor = new THREE.Mesh(new THREE.CylinderGeometry(14.5, 14.9, 0.5, 96), mat(COLORS.floor));
   floor.position.y = -0.25; floor.receiveShadow = true; scene.add(floor);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(14.05, 0.08, 8, 128), mat(COLORS.teal, { emissive: COLORS.teal, emissiveIntensity: 0.4 }));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(14.55, 0.08, 8, 128), mat(COLORS.teal, { emissive: COLORS.teal, emissiveIntensity: 0.4 }));
   ring.rotation.x = Math.PI / 2; ring.position.y = 0.01; scene.add(ring);
 
   // ---------- central bank rotunda (generic, no branding) ----------
@@ -304,18 +306,18 @@
   }
 
   // ---------- stations on a ring around the bank ----------
-  const RING = 9.6;
+  const RING = 10.3;
   const stations = [];
-  function makeStation(name, emoji) {
+  function makeStation(name, emoji, labelScale = 1) {
     const i = stations.length;
-    const a = (i / 8) * TAU;
+    const a = (i / N_ST) * TAU;
     const group = new THREE.Group();
     group.position.set(Math.sin(a) * RING, 0, Math.cos(a) * RING);
     group.rotation.y = a;                         // local +z faces outwards (towards the camera when in front)
     scene.add(group);
-    const label = labelSprite(`${emoji}  ${name}`, "#1d3557", "#ffffff", 1);
+    const label = labelSprite(`${emoji}  ${name}`, "#1d3557", "#ffffff", labelScale);
     label.position.set(0, 4.15, 0); group.add(label);
-    const st = { i, a, name, group, label, update: () => {} };
+    const st = { i, a, name, group, label, onCam: 0, update: () => {} };
     stations.push(st);
     return st;
   }
@@ -405,64 +407,163 @@
       const su = frac(lt * 2);
       scanRing.position.y = 0.2 + su * 1.75;
       scanRing.material.opacity = Math.sin(Math.PI * su) * 0.9;
-      bubble.material.opacity = smooth(0.45, 0.55, lt) * (1 - smooth(0.9, 0.97, lt));
+      bubble.material.opacity = smooth(0.45, 0.55, lt) * (1 - smooth(0.9, 0.97, lt)) * st.onCam;
     };
   }
 
-  // --- 2. New software ---
+  // --- 2. Avature: acquisition & talent management (recruiting → skills → onboarding) ---
   {
-    const st = makeStation("New Software", "💻"); const g = st.group;
-    desk(g, 3.0);
-    const mon = screen(g, { w: 2.6, h: 1.55, px: 640, y: 2.15, z: -0.25 });
-    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8), mat(0x9aa8ba)); stand.position.set(0, 1.3, -0.25); g.add(stand);
-    const icons = [COLORS.teal, COLORS.coral, COLORS.gold, COLORS.blue].map((c) => {
-      const ic = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.08), mat(c, { emissive: c, emissiveIntensity: 0.25 }));
-      ic.castShadow = true; g.add(ic); return ic;
+    const st = makeStation("Avature Acquisition & Talent Management", "🧩", 0.8); const g = st.group;
+    desk(g, 3.2);
+    const scr = screen(g, { w: 2.8, h: 1.65, px: 680, y: 2.15, z: -0.3 });
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 8), mat(0x9aa8ba)); stand.position.set(0, 1.25, -0.3); g.add(stand);
+    // topic chips that pop above the screen in story order
+    const topics = [["🤝  Recruiting", "#ff7a59", "#ffffff", 0.1], ["🎯  Skills", "#f4c430", "#12233b", 0.3], ["🚀  Onboarding", "#19b3a6", "#ffffff", 0.5]].map(([txt, bg, fg, at], i) => {
+      const s = labelSprite(txt, bg, fg, 0.6);
+      s.position.set(-1.6 + i * 1.6, 3.4 + (i === 1 ? 0.2 : 0), 0.1);
+      s.userData = { sx: s.scale.x, sy: s.scale.y, at };
+      g.add(s); return s;
     });
-    const check = makeCheck(); check.position.set(1.65, 3.3, 0.1); g.add(check);
 
-    addPerson(st, "hr", -2.5, 0.4, 0, -0.3, "point", 0.1);
-    addPerson(st, "pc", 2.5, 0.6, 0, -0.3, "nod", 0.45);
-    addPerson(st, "pc", 2.4, -1.0, 0, -0.3, "cheer", 0.7);
+    addPerson(st, "hr", -2.6, 0.4, 0, -0.3, "explain", 0.15);
+    addPerson(st, "pc", 2.6, 0.5, 0, -0.3, "nod", 0.45);
+    addPerson(st, "pc", 2.5, -1.0, 0, -0.3, "cheer", 0.7);
+
+    const stages = ["Applied", "Interview", "Offer", "Hired"];
+    const skills = [["Data analysis", 0.9, "#19b3a6"], ["Risk & compliance", 0.75, "#ff7a59"], ["Leadership", 0.6, "#6c8cff"]];
+    const onboard = ["Contract signed", "Laptop & access", "Buddy assigned", "Day-1 plan"];
+    st.update = (lt) => {
+      const { ctx, w, h } = scr;
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
+      header(ctx, w, "Avature", "ACQUISITION & TALENT");
+      ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+      // Recruiting pipeline
+      ctx.fillStyle = "#12233b"; ctx.font = `700 17px ${FONT}`; ctx.fillText("Recruiting pipeline", 16, 72);
+      const colW = 100;
+      const pos = smooth(0.08, 0.2, lt) + smooth(0.2, 0.32, lt) + smooth(0.32, 0.44, lt);   // 0..3 stage index
+      stages.forEach((s, i) => {
+        const x = 16 + i * colW;
+        ctx.fillStyle = "#f1f5fa"; roundRect(ctx, x, 82, colW - 8, 150, 10); ctx.fill();
+        ctx.fillStyle = "#4d607a"; ctx.font = `700 13px ${FONT}`; ctx.fillText(s, x + 8, 100);
+        for (let k = 0; k < 3 - i % 2; k++) { ctx.fillStyle = "#d6dee8"; roundRect(ctx, x + 8, 110 + k * 30, colW - 24, 22, 6); ctx.fill(); }
+      });
+      const cx = 16 + pos * colW + 8, cy = 196;
+      ctx.fillStyle = "#ff7a59"; roundRect(ctx, cx, cy, colW - 24, 28, 7); ctx.fill();
+      ctx.fillStyle = "#ffffff"; ctx.font = `700 12px ${FONT}`; ctx.fillText("Candidate", cx + 8, cy + 18);
+      // Skills profile
+      const sx = 430;
+      ctx.fillStyle = "#12233b"; ctx.font = `700 17px ${FONT}`; ctx.fillText("Skills profile", sx, 72);
+      skills.forEach(([name, v, col], i) => {
+        const y = 100 + i * 42;
+        const p = smooth(0.24 + i * 0.06, 0.44 + i * 0.06, lt) * v;
+        ctx.fillStyle = "#4d607a"; ctx.font = `600 14px ${FONT}`; ctx.fillText(name, sx, y);
+        ctx.fillStyle = "#e3eaf3"; roundRect(ctx, sx, y + 8, 230, 12, 6); ctx.fill();
+        ctx.fillStyle = col; roundRect(ctx, sx, y + 8, Math.max(12, 230 * p), 12, 6); ctx.fill();
+      });
+      const m = smooth(0.42, 0.5, lt);
+      if (m > 0) {
+        ctx.globalAlpha = m; ctx.fillStyle = "#f4c430"; roundRect(ctx, sx, 214, 150, 26, 13); ctx.fill();
+        ctx.fillStyle = "#12233b"; ctx.font = `800 14px ${FONT}`; ctx.fillText("Skill match 92 %", sx + 14, 232); ctx.globalAlpha = 1;
+      }
+      // Onboarding
+      ctx.fillStyle = "#f1f5fa"; ctx.fillRect(0, 254, w, h - 254);
+      ctx.fillStyle = "#12233b"; ctx.font = `700 17px ${FONT}`; ctx.fillText("Onboarding", 16, 282);
+      onboard.forEach((s, i) => {
+        const on = lt > 0.48 + i * 0.06;
+        const x = 16 + i * 165;
+        tick(ctx, x + 12, 314, 12, on);
+        ctx.fillStyle = on ? "#12233b" : "#8a9bb2"; ctx.font = `600 14px ${FONT}`; ctx.fillText(s, x + 30, 319);
+      });
+      const wl = smooth(0.7, 0.76, lt);
+      if (wl > 0) {
+        ctx.globalAlpha = wl; ctx.fillStyle = "#19b3a6"; roundRect(ctx, w - 250, 262, 234, 30, 15); ctx.fill();
+        ctx.fillStyle = "#ffffff"; ctx.font = `800 15px ${FONT}`; ctx.textAlign = "center"; ctx.fillText("Welcome aboard! 🎉", w - 133, 282);
+        ctx.textAlign = "left"; ctx.globalAlpha = 1;
+      }
+      seamFade(ctx, w, h, lt);
+      scr.tex.needsUpdate = true;
+
+      topics.forEach((s) => {
+        const p = smooth(s.userData.at, s.userData.at + 0.08, lt) * (1 - smooth(0.9, 0.97, lt));
+        const k = Math.max(0.0001, backOut(clamp(p)) * p);
+        s.scale.set(s.userData.sx * k, s.userData.sy * k, 1);
+        s.material.opacity = clamp(p * 1.5) * st.onCam;
+      });
+    };
+  }
+
+  // --- 3. Learning systems: MyLearning & Plus (online trainings and WBTs) ---
+  {
+    const st = makeStation("Learning Systems", "📚"); const g = st.group;
+    desk(g, 3.8);
+    const lms = [
+      { name: "MyLearning", bg: "#19b3a6", x: -1.0, items: [["ONLINE TRAINING", "Code of Conduct"], ["WBT", "Information Security"]] },
+      { name: "Plus", bg: "#ff7a59", x: 1.0, items: [["WBT", "AML & Sanctions"], ["ONLINE TRAINING", "Agile Working"]] },
+    ].map((d) => {
+      const s = screen(g, { w: 1.9, h: 1.25, px: 400, x: d.x, y: 2.05, z: -0.3 });
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.35, 8), mat(0x9aa8ba)); stand.position.set(d.x, 1.25, -0.3); g.add(stand);
+      return { ...d, scr: s };
+    });
+    // book stack on the desk
+    [[COLORS.teal, 0], [COLORS.coral, 1], [COLORS.gold, 2]].forEach(([c, i]) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.5 - i * 0.05, 0.1, 0.36), mat(c)); b.position.set(1.7, 1.11 + i * 0.1, 0.35); b.rotation.y = i * 0.2; b.castShadow = true; g.add(b);
+    });
+    // floating "play" buttons rising from the screens
+    const playShape = new THREE.Shape(); playShape.moveTo(-0.07, -0.1); playShape.lineTo(0.12, 0); playShape.lineTo(-0.07, 0.1); playShape.closePath();
+    const plays = [COLORS.teal, COLORS.coral, COLORS.teal, COLORS.coral].map((c) => {
+      const pg = new THREE.Group();
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.06, 28), mat(c, { emissive: c, emissiveIntensity: 0.3 })); disc.rotation.x = Math.PI / 2;
+      const tri = new THREE.Mesh(new THREE.ShapeGeometry(playShape), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })); tri.position.z = 0.035;
+      pg.add(disc, tri); shadowAll(pg); g.add(pg); return pg;
+    });
+
+    addPerson(st, "hr", -2.8, 0.4, -0.9, -0.3, "point", 0.3);
+    addPerson(st, "pc", 2.8, 0.5, 0.9, -0.3, "nod", 0.6);
+    addPerson(st, "pc", 2.7, -1.0, 0.9, -0.3, "cheer", 0.05);
 
     st.update = (lt) => {
-      const { ctx, w, h } = mon;
-      const g2 = ctx.createLinearGradient(0, 0, w, h); g2.addColorStop(0, "#14263f"); g2.addColorStop(1, "#0e1b2c");
-      ctx.fillStyle = g2; ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = "#ffffff"; roundRect(ctx, 50, 40, w - 100, h - 80, 16); ctx.fill();
-      ctx.fillStyle = "#1d3557"; roundRect(ctx, 50, 40, w - 100, 48, 16); ctx.fill(); ctx.fillRect(50, 70, w - 100, 18);
-      ["#ff5f57", "#febc2e", "#28c840"].forEach((c, i) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(78 + i * 22, 64, 7, 0, TAU); ctx.fill(); });
-      ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
-      ctx.fillStyle = "#ffffff"; ctx.font = `600 20px ${FONT}`; ctx.fillText("PeopleHub 2.0 — Rollout", 160, 71);
-      const prog = smooth(0.06, 0.72, lt);
-      ctx.fillStyle = "#12233b"; ctx.font = `700 30px ${FONT}`;
-      ctx.fillText(lt >= 0.72 ? "Ready for People & Culture!" : "Setting up your new tool…", 86, 145);
-      ["Migrating employee data", "Configuring workflows", "Training session booked"].forEach((s, i) => {
-        const ok = prog > (i + 1) / 3.2;
-        tick(ctx, 98, 182 + i * 32, 10, ok);
-        ctx.fillStyle = ok ? "#12233b" : "#8a9bb2"; ctx.font = `500 18px ${FONT}`; ctx.fillText(s, 118, 188 + i * 32);
+      lms.forEach((d, si) => {
+        const { ctx, w, h } = d.scr;
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
+        header(ctx, w, d.name, "LMS", d.bg);
+        ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+        d.items.forEach(([type, title], k) => {
+          const y = 52 + k * 108;
+          const start = 0.08 + si * 0.1 + k * 0.16;
+          const appear = smooth(start, start + 0.06, lt);
+          if (appear <= 0) return;
+          ctx.globalAlpha = appear;
+          ctx.fillStyle = "#f1f5fa"; roundRect(ctx, 10, y, w - 20, 100, 12); ctx.fill();
+          const isWbt = type === "WBT";
+          ctx.font = `800 15px ${FONT}`;
+          const tw = ctx.measureText(type).width + 16;
+          ctx.fillStyle = isWbt ? "#6c8cff" : "#1d3557"; roundRect(ctx, 22, y + 10, tw, 26, 13); ctx.fill();
+          ctx.fillStyle = "#ffffff"; ctx.fillText(type, 30, y + 29);
+          ctx.fillStyle = "#12233b"; ctx.font = `700 23px ${FONT}`; ctx.fillText(title, 22, y + 62);
+          const p = smooth(start + 0.06, start + 0.36, lt);
+          ctx.fillStyle = "#e3eaf3"; roundRect(ctx, 22, y + 76, w - 110, 12, 6); ctx.fill();
+          ctx.fillStyle = d.bg; roundRect(ctx, 22, y + 76, Math.max(12, (w - 110) * p), 12, 6); ctx.fill();
+          if (p >= 1) {
+            tick(ctx, w - 46, y + 60, 20, true);
+          } else {
+            ctx.fillStyle = d.bg; ctx.beginPath(); ctx.arc(w - 46, y + 60, 20, 0, TAU); ctx.fill();
+            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.moveTo(w - 52, y + 49); ctx.lineTo(w - 34, y + 60); ctx.lineTo(w - 52, y + 71); ctx.closePath(); ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        });
+        seamFade(ctx, w, h, lt);
+        d.scr.tex.needsUpdate = true;
       });
-      ctx.fillStyle = "#e3eaf3"; roundRect(ctx, 86, h - 82, w - 172, 20, 10); ctx.fill();
-      const gg = ctx.createLinearGradient(86, 0, w - 86, 0); gg.addColorStop(0, "#19b3a6"); gg.addColorStop(1, "#ff7a59");
-      ctx.fillStyle = gg; roundRect(ctx, 86, h - 82, Math.max(20, (w - 172) * prog), 20, 10); ctx.fill();
-      ctx.fillStyle = "#12233b"; ctx.font = `700 16px ${FONT}`; ctx.textAlign = "right";
-      ctx.fillText(Math.round(prog * 100) + "%", w - 86, h - 94); ctx.textAlign = "left";
-      seamFade(ctx, w, h, lt);
-      mon.tex.needsUpdate = true;
-
-      icons.forEach((ic, i) => {
+      plays.forEach((pg, i) => {
         const u = frac(lt * 2 + i / 4);
-        ic.position.set(-1.0 + i * 0.66, 1.1 + Math.sin(Math.PI * u) * 2.4, 0.3 - u * 0.4);
-        ic.rotation.set(u * TAU, u * TAU, 0);
-        ic.scale.setScalar(Math.sin(Math.PI * u) * 0.9 + 0.1);
+        pg.position.set((i % 2 ? 1.0 : -1.0) + 0.25 * Math.sin(TAU * u + i), 2.8 + u * 1.3, 0.0);
+        pg.rotation.y = Math.sin(TAU * u) * 0.6;
+        pg.scale.setScalar(Math.max(0.0001, Math.sin(Math.PI * u)));
       });
-      const cp = smooth(0.72, 0.82, lt) * (1 - smooth(0.92, 0.99, lt));
-      check.scale.setScalar(Math.max(0.0001, backOut(clamp(cp)) * cp));
-      check.rotation.y = (1 - cp) * 1.5;
     };
   }
 
-  // --- 3. Reports ---
+  // --- 4. Reports ---
   {
     const st = makeStation("Reports & Insights", "📊"); const g = st.group;
     const board = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.3, 0.12), mat(0xffffff));
@@ -510,7 +611,7 @@
     };
   }
 
-  // --- 4. Procurement ---
+  // --- 5. Procurement ---
   {
     const st = makeStation("Procurement", "🛒"); const g = st.group;
     desk(g, 3.0);
@@ -569,7 +670,7 @@
     };
   }
 
-  // --- 5. Training management ---
+  // --- 6. Training management ---
   {
     const st = makeStation("Training Management", "🎓"); const g = st.group;
     const scr = screen(g, { w: 3.0, h: 1.8, px: 640, y: 2.2, z: -0.4, frame: 0xffffff });
@@ -626,7 +727,7 @@
     };
   }
 
-  // --- 6. Temporary work ---
+  // --- 7. Temporary work ---
   {
     const st = makeStation("Temporary Work", "⏱️"); const g = st.group;
     desk(g, 3.2);
@@ -702,7 +803,7 @@
     };
   }
 
-  // --- 7. Pre-employment screening ---
+  // --- 8. Pre-employment screening ---
   {
     const st = makeStation("Pre-Employment Screening", "🔍"); const g = st.group;
     const scr = screen(g, { w: 3.2, h: 1.9, px: 640, y: 2.2, z: -0.4, frame: 0xffffff });
@@ -762,7 +863,7 @@
     };
   }
 
-  // --- 8. Employee surveys ---
+  // --- 9. Employee surveys ---
   {
     const st = makeStation("Employee Surveys", "💬"); const g = st.group;
     desk(g, 2.8);
@@ -918,31 +1019,31 @@
 
   function animate(t) {
     // Camera tour: 3 s per station — rest in front of it, then glide to the next one.
-    const seg = 8 * t, segI = Math.floor(seg), f = seg - segI;
-    const c = (TAU / 8) * (segI + smooth(DWELL, 1, f));
+    const seg = N_ST * t, segI = Math.floor(seg), f = seg - segI;
+    const c = (TAU / N_ST) * (segI + smooth(DWELL, 1, f));
     const dolly = f < DWELL ? Math.sin(Math.PI * f / DWELL) : 0;   // gentle push-in while resting
     const portrait = camera.aspect < 0.8;
-    const dist = (portrait ? 22 : 18) - 1.2 * dolly;
-    camera.position.set(Math.sin(c) * dist, (portrait ? 7.5 : 6.4) + 0.25 * wave(t, 8, 0.25), Math.cos(c) * dist);
-    camTarget.set(Math.sin(c) * 6.6, 2.0, Math.cos(c) * 6.6);
+    const dist = (portrait ? 23 : 18.8) - 1.2 * dolly;
+    camera.position.set(Math.sin(c) * dist, (portrait ? 7.5 : 6.4) + 0.25 * wave(t, N_ST, 0.25), Math.cos(c) * dist);
+    camTarget.set(Math.sin(c) * 7.2, 2.0, Math.cos(c) * 7.2);
     camera.lookAt(camTarget);
 
-    const idx = Math.round(c / (TAU / 8)) % 8;  // station currently in front
+    const idx = Math.round(c / (TAU / N_ST)) % N_ST;  // station currently in front
     if (idx !== activeChip) {
       chips.forEach((ch, i) => ch.classList.toggle("on", i === idx));
       activeChip = idx;
     }
 
     // hub
-    hubCore.rotation.y = TAU * t * 6; hubCore.rotation.x = TAU * t * 6;
-    shell.rotation.y = -TAU * t * 6; shell.rotation.z = TAU * t * 3;
-    orbit.rotation.z = TAU * t * 12;
-    hub.position.y = 7.4 + wave(t, 6) * 0.15;
-    hubLight.intensity = 0.7 + 0.3 * (0.5 + 0.5 * wave(t, 16));
-    hubCore.scale.setScalar(1 + 0.06 * wave(t, 16));
+    hubCore.rotation.y = TAU * t * 9; hubCore.rotation.x = TAU * t * 9;
+    shell.rotation.y = -TAU * t * 9; shell.rotation.z = TAU * t * 4;
+    orbit.rotation.z = TAU * t * 18;
+    hub.position.y = 7.4 + wave(t, 9) * 0.15;
+    hubLight.intensity = 0.7 + 0.3 * (0.5 + 0.5 * wave(t, 24));
+    hubCore.scale.setScalar(1 + 0.06 * wave(t, 24));
 
     packets.forEach((p) => {
-      const u = frac(t * 12 + p.offset);
+      const u = frac(t * 18 + p.offset);
       p.mesh.position.copy(p.curve.getPoint(u));
       p.mesh.rotation.set(u * TAU * 2, u * TAU * 2, 0);
       p.mesh.scale.setScalar(Math.sin(Math.PI * u) * 1.1 + 0.05);
@@ -953,27 +1054,28 @@
     stations.forEach((st) => {
       const lt = f;
       lts[st.i] = lt;
-      st.update(lt);
-      // fade labels of stations facing away from the camera
+      // how directly the station faces the camera (1 = straight on)
       toCam.set(camera.position.x - st.group.position.x, 0, camera.position.z - st.group.position.z).normalize();
       const facing = toCam.x * Math.sin(st.a) + toCam.z * Math.cos(st.a);
-      st.label.material.opacity = smooth(0.93, 0.985, facing);
+      st.onCam = smooth(0.93, 0.985, facing);
+      st.update(lt);
+      st.label.material.opacity = st.onCam;
       st.label.visible = st.label.material.opacity > 0.01;
     });
     animatePeople(lts);
 
     coins.forEach((cn) => {
-      cn.rotation.z = TAU * t * 5;
-      cn.position.y = cn.userData.y + wave(t, 5, cn.userData.phase) * 0.3;
+      cn.rotation.z = TAU * t * 7;
+      cn.position.y = cn.userData.y + wave(t, 7, cn.userData.phase) * 0.3;
     });
     for (let i = 0; i < sparkCount; i++) {
       const s = sparkSeed[i];
       sparkPos[i * 3] = Math.cos(s.a) * s.r;
-      sparkPos[i * 3 + 1] = s.y + frac(t * s.k * 4 + s.p) * 2.5;
+      sparkPos[i * 3 + 1] = s.y + frac(t * s.k * 6 + s.p) * 2.5;
       sparkPos[i * 3 + 2] = Math.sin(s.a) * s.r;
     }
     sparkGeo.attributes.position.needsUpdate = true;
-    ring.material.emissiveIntensity = 0.3 + 0.25 * (0.5 + 0.5 * wave(t, 8));
+    ring.material.emissiveIntensity = 0.3 + 0.25 * (0.5 + 0.5 * wave(t, 12));
   }
 
   // ---------- loop / UI ----------
@@ -1000,7 +1102,7 @@
     animate(t);
     renderer.render(scene, camera);
     progressEl.style.width = (t * 100).toFixed(2) + "%";
-    timeEl.textContent = elapsed.toFixed(1) + " / 24s";
+    timeEl.textContent = elapsed.toFixed(1) + " / " + LOOP + "s";
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

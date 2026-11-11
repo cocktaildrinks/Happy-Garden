@@ -70,13 +70,14 @@
 <div class="bottom">
   <button id="toggle" type="button">Pause</button>
   <div class="bar"><i id="progress"></i></div>
-  <div class="time" id="time">0.0 / 10s</div>
+  <div class="time" id="time">0.0 / 24s</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (() => {
-  const LOOP = 10;             // seconds for one full camera tour
+  const LOOP = 24;             // seconds for one full camera tour (8 stations × 3 s)
+  const DWELL = 0.72;          // share of each 3 s segment the camera rests on a station
   const TAU = Math.PI * 2;
   const COLORS = {
     teal: 0x19b3a6, coral: 0xff7a59, navy: 0x1d3557, gold: 0xf4c430, blue: 0x6c8cff, green: 0x2ecc71,
@@ -916,39 +917,41 @@
   const lts = new Array(stations.length).fill(0);
 
   function animate(t) {
-    // Camera tour: one revolution per loop, slowing down in front of each of the 8 stations.
-    const c = TAU * t - 0.75 * Math.sin(TAU * 8 * t) / 8;
+    // Camera tour: 3 s per station — rest in front of it, then glide to the next one.
+    const seg = 8 * t, segI = Math.floor(seg), f = seg - segI;
+    const c = (TAU / 8) * (segI + smooth(DWELL, 1, f));
+    const dolly = f < DWELL ? Math.sin(Math.PI * f / DWELL) : 0;   // gentle push-in while resting
     const portrait = camera.aspect < 0.8;
-    const dist = portrait ? 22 : 18;
+    const dist = (portrait ? 22 : 18) - 1.2 * dolly;
     camera.position.set(Math.sin(c) * dist, (portrait ? 7.5 : 6.4) + 0.25 * wave(t, 8, 0.25), Math.cos(c) * dist);
     camTarget.set(Math.sin(c) * 6.6, 2.0, Math.cos(c) * 6.6);
     camera.lookAt(camTarget);
 
-    const idx = Math.round(c / (TAU / 8)) % 8;
+    const idx = Math.round(c / (TAU / 8)) % 8;  // station currently in front
     if (idx !== activeChip) {
       chips.forEach((ch, i) => ch.classList.toggle("on", i === idx));
       activeChip = idx;
     }
 
     // hub
-    hubCore.rotation.y = TAU * t * 2; hubCore.rotation.x = TAU * t * 2;
-    shell.rotation.y = -TAU * t * 2; shell.rotation.z = TAU * t;
-    orbit.rotation.z = TAU * t * 4;
-    hub.position.y = 7.4 + wave(t, 2) * 0.15;
-    hubLight.intensity = 0.7 + 0.3 * (0.5 + 0.5 * wave(t, 8));
-    hubCore.scale.setScalar(1 + 0.06 * wave(t, 8));
+    hubCore.rotation.y = TAU * t * 6; hubCore.rotation.x = TAU * t * 6;
+    shell.rotation.y = -TAU * t * 6; shell.rotation.z = TAU * t * 3;
+    orbit.rotation.z = TAU * t * 12;
+    hub.position.y = 7.4 + wave(t, 6) * 0.15;
+    hubLight.intensity = 0.7 + 0.3 * (0.5 + 0.5 * wave(t, 16));
+    hubCore.scale.setScalar(1 + 0.06 * wave(t, 16));
 
     packets.forEach((p) => {
-      const u = frac(t * 3 + p.offset);
+      const u = frac(t * 12 + p.offset);
       p.mesh.position.copy(p.curve.getPoint(u));
       p.mesh.rotation.set(u * TAU * 2, u * TAU * 2, 0);
       p.mesh.scale.setScalar(Math.sin(Math.PI * u) * 1.1 + 0.05);
     });
 
-    // Each station runs its own 5 s story (two per loop), timed so that its
-    // highlight happens while the camera is in front of it.
+    // Each station runs a 3 s story that starts when the camera arrives and
+    // reaches its highlight just before the camera moves on.
     stations.forEach((st) => {
-      const lt = frac(2 * (t - st.i / 8) + 0.5);
+      const lt = f;
       lts[st.i] = lt;
       st.update(lt);
       // fade labels of stations facing away from the camera
@@ -960,17 +963,17 @@
     animatePeople(lts);
 
     coins.forEach((cn) => {
-      cn.rotation.z = TAU * t * 2;
-      cn.position.y = cn.userData.y + wave(t, 2, cn.userData.phase) * 0.3;
+      cn.rotation.z = TAU * t * 5;
+      cn.position.y = cn.userData.y + wave(t, 5, cn.userData.phase) * 0.3;
     });
     for (let i = 0; i < sparkCount; i++) {
       const s = sparkSeed[i];
       sparkPos[i * 3] = Math.cos(s.a) * s.r;
-      sparkPos[i * 3 + 1] = s.y + frac(t * s.k + s.p) * 2.5;
+      sparkPos[i * 3 + 1] = s.y + frac(t * s.k * 4 + s.p) * 2.5;
       sparkPos[i * 3 + 2] = Math.sin(s.a) * s.r;
     }
     sparkGeo.attributes.position.needsUpdate = true;
-    ring.material.emissiveIntensity = 0.3 + 0.25 * (0.5 + 0.5 * wave(t, 4));
+    ring.material.emissiveIntensity = 0.3 + 0.25 * (0.5 + 0.5 * wave(t, 8));
   }
 
   // ---------- loop / UI ----------
@@ -997,7 +1000,7 @@
     animate(t);
     renderer.render(scene, camera);
     progressEl.style.width = (t * 100).toFixed(2) + "%";
-    timeEl.textContent = elapsed.toFixed(1) + " / 10s";
+    timeEl.textContent = elapsed.toFixed(1) + " / 24s";
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

@@ -70,16 +70,20 @@
 <div class="bottom">
   <button id="toggle" type="button">Pause</button>
   <div class="bar"><i id="progress"></i></div>
-  <div class="time" id="time">0.0 / 36s</div>
+  <div class="time" id="time">0.0 / 40s</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (() => {
   const N_ST = 9;              // number of stations on the ring
-  const SEG = 4;               // seconds per station
-  const LOOP = N_ST * SEG;     // seconds for one full camera tour (36 s)
-  const DWELL = 0.75;          // share of each segment the camera rests on a station
+  const SEG = 4;               // seconds per station: rest + sideways move
+  const REST = 3, MOVE = 1;    // camera rests 3 s in front of a station, then glides 1 s
+  const T_HOLD = 2.0;          // wide shot of the whole tower at the start
+  const T_IN = 1.5, T_OUT = 1.5;   // zoom in to the first station / out after the last
+  const T_ST0 = T_HOLD + T_IN;                                   // arrival at station 1
+  const T_LAST = T_ST0 + N_ST * REST + (N_ST - 1) * MOVE;        // leaving the last station
+  const LOOP = T_LAST + T_OUT;                                   // 40 s in total
   const TAU = Math.PI * 2;
   const COLORS = {
     teal: 0x19b3a6, coral: 0xff7a59, navy: 0x1d3557, gold: 0xf4c430, blue: 0x6c8cff, green: 0x2ecc71,
@@ -1055,18 +1059,30 @@
   const lts = new Array(stations.length).fill(0);
 
   function animate(t) {
-    // Camera tour: 3 s per station — rest in front of it, then glide to the next one.
-    const seg = N_ST * t, segI = Math.floor(seg), f = seg - segI;
-    const c = (TAU / N_ST) * (segI + smooth(DWELL, 1, f));
-    const dolly = f < DWELL ? Math.sin(Math.PI * f / DWELL) : 0;   // gentle push-in while resting
-    const lift = f > DWELL ? Math.sin(Math.PI * (f - DWELL) / (1 - DWELL)) : 0;   // look up at the tower while moving on
+    // Camera: wide shot of the tower → zoom in → station by station sideways →
+    // zoom out after the last station back into the wide shot (loop seam).
+    const time = t * LOOP;
+    const step = TAU / N_ST;
+    let c, zoom = 1, dolly = 0;
+    if (time >= T_ST0 && time < T_LAST) {
+      const s = time - T_ST0, k = Math.floor(s / SEG), r = s - k * SEG;
+      if (r < REST) { c = step * k; dolly = Math.sin(Math.PI * r / REST); }
+      else c = step * (k + smooth(0, 1, (r - REST) / MOVE));
+    } else {
+      // wide segment spans the loop seam: zoom out, hold, zoom in (5 s)
+      const w = (time >= T_LAST ? time - T_LAST : time + T_OUT) / (T_OUT + T_HOLD + T_IN);
+      c = step * (N_ST - 1 + smooth(0, 1, w));
+      zoom = 1 - smooth(0, T_OUT / (T_OUT + T_HOLD + T_IN), w) + smooth(1 - T_IN / (T_OUT + T_HOLD + T_IN), 1, w);
+    }
     const portrait = camera.aspect < 0.8;
-    const dist = (portrait ? 23 : 18.8) - 1.2 * dolly + 2.5 * lift;
-    camera.position.set(Math.sin(c) * dist, (portrait ? 7.5 : 6.4) + 0.25 * wave(t, N_ST, 0.25) + 1.5 * lift, Math.cos(c) * dist);
-    camTarget.set(Math.sin(c) * 7.2 * (1 - lift), 2.0 + 7.0 * lift, Math.cos(c) * 7.2 * (1 - lift));
+    const lerp = (a, b) => a + (b - a) * zoom;
+    const dist = lerp(portrait ? 40 : 26.5, (portrait ? 23 : 18.8) - 1.2 * dolly);
+    camera.position.set(Math.sin(c) * dist, lerp(portrait ? 10 : 8.6, (portrait ? 7.5 : 6.4) + 0.25 * wave(t, N_ST * 2, 0.25)), Math.cos(c) * dist);
+    const tr = lerp(0, 7.2);
+    camTarget.set(Math.sin(c) * tr, lerp(6.3, 2.0), Math.cos(c) * tr);
     camera.lookAt(camTarget);
 
-    const idx = Math.round(c / (TAU / N_ST)) % N_ST;  // station currently in front
+    const idx = zoom > 0.5 ? Math.round(c / step) % N_ST : -1;  // station currently in front
     if (idx !== activeChip) {
       chips.forEach((ch, i) => ch.classList.toggle("on", i === idx));
       activeChip = idx;
@@ -1090,12 +1106,12 @@
     // Each station runs a 3 s story that starts when the camera arrives and
     // reaches its highlight just before the camera moves on.
     stations.forEach((st) => {
-      const lt = f;
+      const lt = frac((time - T_ST0) / SEG);   // every station replays its 4 s story, in step with the tour
       lts[st.i] = lt;
       // how directly the station faces the camera (1 = straight on)
       toCam.set(camera.position.x - st.group.position.x, 0, camera.position.z - st.group.position.z).normalize();
       const facing = toCam.x * Math.sin(st.a) + toCam.z * Math.cos(st.a);
-      st.onCam = smooth(0.93, 0.985, facing);
+      st.onCam = smooth(0.93, 0.985, facing) * smooth(0.6, 1, zoom);
       st.update(lt);
       st.label.material.opacity = st.onCam;
       st.label.visible = st.label.material.opacity > 0.01;

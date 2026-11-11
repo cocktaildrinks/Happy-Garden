@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>HR Data &amp; Tools</title>
+<title>Data &amp; Tools Hub</title>
 <style>
   :root {
     --bg: #0f1a2b;
@@ -56,11 +56,11 @@
 
 <div class="hud">
   <div class="card">
-    <h1>HR Data &amp; Tools × People &amp; Culture</h1>
-    <p class="sub">Nine ways the HR Data &amp; Tools team supports People &amp; Culture</p>
+    <h1>Data &amp; Tools × People &amp; Culture</h1>
+    <p class="sub">Nine ways the Data &amp; Tools team supports People &amp; Culture</p>
   </div>
   <div class="card legend">
-    <span><i class="dot" style="background:var(--teal)"></i>HR Data &amp; Tools team</span>
+    <span><i class="dot" style="background:var(--teal)"></i>Data &amp; Tools team</span>
     <span><i class="dot" style="background:var(--coral)"></i>People &amp; Culture colleagues</span>
   </div>
 </div>
@@ -217,27 +217,65 @@
   const ring = new THREE.Mesh(new THREE.TorusGeometry(14.55, 0.08, 8, 128), mat(COLORS.teal, { emissive: COLORS.teal, emissiveIntensity: 0.4 }));
   ring.rotation.x = Math.PI / 2; ring.position.y = 0.01; scene.add(ring);
 
-  // ---------- central bank rotunda (generic, no branding) ----------
-  const bank = new THREE.Group(); scene.add(bank);
-  const stoneM = mat(COLORS.stone);
-  const plinth = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.7, 0.5, 48), stoneM); plinth.position.y = 0.25; bank.add(plinth);
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 3.2, 40), mat(0xe7e1d6)); core.position.y = 2.1; bank.add(core);
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * TAU;
-    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 3.2, 16), stoneM);
-    col.position.set(Math.sin(a) * 2.9, 2.1, Math.cos(a) * 2.9); col.castShadow = true; bank.add(col);
+  // ---------- stylised high-rise in the centre (no logos or branding) ----------
+  // Plan: three isosceles triangles combined; four external tubes carry the
+  // load; heavy cross-girders at the 11th floor from which the floors hang.
+  const tower = new THREE.Group(); scene.add(tower);
+  const TOWER_H = 12.2;
+  const planShape = (scale) => {
+    const s = new THREE.Shape();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU + TAU / 12;
+      const r = (i % 2 ? 1.75 : 2.6) * scale;               // long tips / short sides → three triangles
+      const x = Math.sin(a) * r, z = Math.cos(a) * r;
+      if (i === 0) s.moveTo(x, z); else s.lineTo(x, z);
+    }
+    s.closePath();
+    return s;
+  };
+  const facadeTex = (() => {
+    const c = document.createElement("canvas"); c.width = 64; c.height = 64; const x = c.getContext("2d");
+    x.fillStyle = "#c9d3de"; x.fillRect(0, 0, 64, 64);            // aluminium spandrel
+    const gr = x.createLinearGradient(0, 0, 64, 0); gr.addColorStop(0, "#5c7896"); gr.addColorStop(1, "#8fb0cf");
+    x.fillStyle = gr; x.fillRect(0, 22, 64, 34);                   // window band
+    x.fillStyle = "#e6ecf2"; x.fillRect(0, 22, 3, 34); x.fillRect(32, 22, 2, 34);   // mullions
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1.6, 2.4);
+    return t;
+  })();
+  const facadeM = new THREE.MeshStandardMaterial({ map: facadeTex, metalness: 0.45, roughness: 0.35 });
+  const roofM = mat(0x9aa6b4, { metalness: 0.3 });
+  const darkM = mat(0x2d3b4f, { metalness: 0.3, roughness: 0.6 });
+  function block(y0, y1, scale, m) {
+    const geo = new THREE.ExtrudeGeometry(planShape(scale), { depth: y1 - y0, bevelEnabled: false });
+    const mesh = new THREE.Mesh(geo, [roofM, m]);
+    mesh.rotation.x = -Math.PI / 2; mesh.position.y = y0;
+    mesh.castShadow = mesh.receiveShadow = true; tower.add(mesh); return mesh;
   }
-  const entab = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 3.3, 0.5, 48), stoneM); entab.position.y = 3.95; bank.add(entab);
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(2.9, 40, 20, 0, TAU, 0, Math.PI / 2), stoneM);
-  dome.scale.y = 0.6; dome.position.y = 4.2; dome.castShadow = true; bank.add(dome);
-  // vault doors on the core, one per side
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * TAU + TAU / 8;
-    const door = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.12, 32), mat(0xb9c2cf, { metalness: 0.6, roughness: 0.3 }));
-    door.position.set(Math.sin(a) * 2.12, 1.9, Math.cos(a) * 2.12);
-    door.lookAt(Math.sin(a) * 10, 1.9, Math.cos(a) * 10); door.rotateX(Math.PI / 2);
-    bank.add(door);
-  }
+  const podium = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.8, 0.35, 48), mat(COLORS.stone)); podium.position.y = 0.17; podium.receiveShadow = true; tower.add(podium);
+  block(0.35, 1.0, 0.82, darkM);                 // recessed glazed lobby
+  block(1.0, 4.6, 1, facadeM);                   // lower floors (hanging)
+  block(4.6, 5.3, 0.86, darkM);                  // 11th floor: girder level
+  block(5.3, TOWER_H - 0.4, 1, facadeM);         // upper floors
+  block(TOWER_H - 0.4, TOWER_H, 0.9, darkM);     // plant room
+  // four external tubes (lifts, stairs, services)
+  const tubeM = mat(0xdfe5ec, { metalness: 0.2, roughness: 0.5 });
+  const tubePos = [0, 1, 2, 3].map((k) => { const a = (k / 4) * TAU + TAU / 8; return new THREE.Vector3(Math.sin(a) * 2.15, 0, Math.cos(a) * 2.15); });
+  tubePos.forEach((p) => {
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, TOWER_H + 0.6, 32), tubeM);
+    tube.position.set(p.x, (TOWER_H + 0.6) / 2, p.z); tube.castShadow = true; tower.add(tube);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.12, 32), darkM); cap.position.set(p.x, TOWER_H + 0.62, p.z); tower.add(cap);
+  });
+  // cross-girders linking the tubes at the 11th floor
+  tubePos.forEach((p, k) => {
+    const q = tubePos[(k + 1) % 4];
+    const len = p.distanceTo(q);
+    const girder = new THREE.Mesh(new THREE.BoxGeometry(len, 0.55, 0.35), mat(0xf0f3f7));
+    girder.position.set((p.x + q.x) / 2, 4.95, (p.z + q.z) / 2);
+    girder.rotation.y = Math.atan2(-(q.z - p.z), q.x - p.x);
+    girder.castShadow = true; tower.add(girder);
+  });
+  const towerLabel = labelSprite("Data & Tools Hub", "#19b3a6", "#ffffff", 1.25);
+  towerLabel.position.set(0, 5.45, 0); tower.add(towerLabel);
 
   // floating coins around the plaza
   const coins = [];
@@ -247,19 +285,18 @@
     const a = (i / 8) * TAU + TAU / 16;
     const c = new THREE.Mesh(coinGeo, coinM); c.rotation.x = Math.PI / 2;
     const y = 6.5 + (i % 3) * 1.2;
-    c.position.set(Math.sin(a) * 9, y + 3, Math.cos(a) * 9);
+    c.position.set(Math.sin(a) * 6.5, y + 3, Math.cos(a) * 6.5);
     c.userData = { y, phase: i / 8 }; scene.add(c); coins.push(c);
   }
 
-  // ---------- data hub above the bank ----------
-  const hub = new THREE.Group(); hub.position.set(0, 7.4, 0); scene.add(hub);
+  // ---------- data hub on top of the tower ----------
+  const hub = new THREE.Group(); hub.position.set(0, 14.6, 0); scene.add(hub);
   const hubCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.75, 0), mat(COLORS.teal, { emissive: COLORS.teal, emissiveIntensity: 0.55, flatShading: true }));
   const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 1), new THREE.MeshBasicMaterial({ color: 0x7ff3e6, wireframe: true, transparent: true, opacity: 0.45 }));
   const orbit = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.03, 8, 80), new THREE.MeshBasicMaterial({ color: COLORS.coral }));
   orbit.rotation.x = Math.PI / 2.4;
   hub.add(hubCore, shell, orbit);
   const hubLight = new THREE.PointLight(0x5ff0e0, 0.8, 14); hub.add(hubLight);
-  const hubLabel = labelSprite("HR Data & Tools", "#19b3a6", "#ffffff", 1.1); hubLabel.position.set(0, 1.85, 0); hub.add(hubLabel);
 
   // ---------- people ----------
   function makePerson(shirt, skin, hairColor) {
@@ -305,7 +342,7 @@
     people.push({ obj: p, role, phase, st });
   }
 
-  // ---------- stations on a ring around the bank ----------
+  // ---------- stations on a ring around the tower ----------
   const RING = 10.3;
   const stations = [];
   function makeStation(name, emoji, labelScale = 1) {
@@ -1022,10 +1059,11 @@
     const seg = N_ST * t, segI = Math.floor(seg), f = seg - segI;
     const c = (TAU / N_ST) * (segI + smooth(DWELL, 1, f));
     const dolly = f < DWELL ? Math.sin(Math.PI * f / DWELL) : 0;   // gentle push-in while resting
+    const lift = f > DWELL ? Math.sin(Math.PI * (f - DWELL) / (1 - DWELL)) : 0;   // look up at the tower while moving on
     const portrait = camera.aspect < 0.8;
-    const dist = (portrait ? 23 : 18.8) - 1.2 * dolly;
-    camera.position.set(Math.sin(c) * dist, (portrait ? 7.5 : 6.4) + 0.25 * wave(t, N_ST, 0.25), Math.cos(c) * dist);
-    camTarget.set(Math.sin(c) * 7.2, 2.0, Math.cos(c) * 7.2);
+    const dist = (portrait ? 23 : 18.8) - 1.2 * dolly + 2.5 * lift;
+    camera.position.set(Math.sin(c) * dist, (portrait ? 7.5 : 6.4) + 0.25 * wave(t, N_ST, 0.25) + 1.5 * lift, Math.cos(c) * dist);
+    camTarget.set(Math.sin(c) * 7.2 * (1 - lift), 2.0 + 7.0 * lift, Math.cos(c) * 7.2 * (1 - lift));
     camera.lookAt(camTarget);
 
     const idx = Math.round(c / (TAU / N_ST)) % N_ST;  // station currently in front
@@ -1038,7 +1076,7 @@
     hubCore.rotation.y = TAU * t * 9; hubCore.rotation.x = TAU * t * 9;
     shell.rotation.y = -TAU * t * 9; shell.rotation.z = TAU * t * 4;
     orbit.rotation.z = TAU * t * 18;
-    hub.position.y = 7.4 + wave(t, 9) * 0.15;
+    hub.position.y = 14.6 + wave(t, 9) * 0.15;
     hubLight.intensity = 0.7 + 0.3 * (0.5 + 0.5 * wave(t, 24));
     hubCore.scale.setScalar(1 + 0.06 * wave(t, 24));
 
